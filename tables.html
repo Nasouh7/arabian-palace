@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arabian Palace — table QR cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Manrope:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --sugar: #FBF5EF; --paper: #FFFDFA; --ink: #1C1612; --ink-2: #5B5047; --ink-3: #8A7D71; --gold: #B6892C; --gold-2: #D4AE57; --gold-line: rgba(182,137,44,.45); --jade: #14463A; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #EFE6D8; color: var(--ink); font-family: Manrope, system-ui, sans-serif; font-weight: 400; }
+  .bar { position: sticky; top: 0; z-index: 2; background: var(--paper); border-bottom: 1px solid var(--gold-line); padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; }
+  .bar h1 { font-family: Fraunces, Georgia, serif; font-weight: 400; font-size: 1.5rem; margin: 0 auto 0 0; align-self: center; }
+  .bar label { display: grid; gap: 4px; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+  .bar input { height: 40px; padding: 0 10px; border: 1px solid var(--gold-line); background: #fff; font: inherit; font-size: .95rem; color: var(--ink); }
+  .bar input[type=url] { width: min(420px, 80vw); }
+  .bar input[type=number] { width: 84px; }
+  .bar button { height: 40px; padding: 0 18px; border: 0; background: var(--ink); color: var(--sugar); font: inherit; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; cursor: pointer; }
+  .warn { flex-basis: 100%; margin: 0; color: #9C4A2F; font-size: .9rem; }
+  .sheet { display: grid; grid-template-columns: repeat(2, 105mm); grid-auto-rows: 148.5mm; justify-content: center; gap: 0; padding: 24px 0 60px; }
+  .card { position: relative; width: 105mm; height: 148.5mm; background: var(--sugar); overflow: hidden; display: grid; justify-items: center; align-content: start; text-align: center; padding: 9mm 8mm 7mm; outline: 1px dashed rgba(0,0,0,.12); outline-offset: -0.5px; }
+  .card::before { content: ""; position: absolute; inset: 5mm; border: .4mm solid var(--gold); pointer-events: none; }
+  .card::after { content: ""; position: absolute; inset: 6.4mm; border: .2mm solid var(--gold-line); pointer-events: none; }
+  .card .logo { width: 19mm; height: 19mm; border-radius: 50%; margin-top: 2mm; }
+  .card .ar { font-family: 'Tajawal', 'Geeza Pro', Tahoma, sans-serif; font-weight: 700; color: var(--gold); font-size: 4.4mm; margin-top: 2mm; direction: rtl; }
+  .card .t { font-family: Fraunces, Georgia, serif; font-size: 12mm; line-height: 1; margin-top: 1mm; }
+  .card .t small { display: block; font-family: Manrope, sans-serif; font-size: 2.6mm; letter-spacing: .3em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 1.5mm; }
+  .card .qr { width: 46mm; height: 46mm; margin-top: 4mm; padding: 2.4mm; background: #fff; border: .3mm solid var(--gold-line); }
+  .card .qr svg { width: 100%; height: 100%; display: block; }
+  .card .how { margin-top: 3.4mm; display: grid; gap: .9mm; font-size: 3mm; line-height: 1.3; color: var(--ink-2); }
+  .card .how b { font-weight: 500; color: var(--ink); }
+  .card .how .ar2 { font-family: 'Tajawal', 'Geeza Pro', Tahoma, sans-serif; font-weight: 700; font-size: 3.7mm; direction: rtl; }
+  .card .halal { position: absolute; left: 0; right: 0; bottom: 8.6mm; font-size: 2.4mm; letter-spacing: .26em; text-transform: uppercase; color: var(--jade); }
+  .card .halal span { font-family: 'Tajawal', 'Geeza Pro', Tahoma, sans-serif; font-weight: 700; letter-spacing: 0; font-size: 3.4mm; }
+  .card .star { position: absolute; width: 3mm; height: 3mm; background: var(--gold); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+  .card .s1 { top: 3.5mm; left: 3.5mm; } .card .s2 { top: 3.5mm; right: 3.5mm; } .card .s3 { bottom: 3.5mm; left: 3.5mm; } .card .s4 { bottom: 3.5mm; right: 3.5mm; }
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .bar { display: none; }
+    .sheet { padding: 0; gap: 0; }
+    .card { break-inside: avoid; outline: .2mm dashed rgba(0,0,0,.18); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card:nth-child(4n) { break-after: page; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>Table QR cards</h1>
+  <label>Website address<input type="url" id="url" placeholder="https://your-domain/"></label>
+  <label>From table<input type="number" id="from" min="1" value="1"></label>
+  <label>To table<input type="number" id="to" min="1" value="12"></label>
+  <button type="button" id="print">Print</button>
+  <p class="warn" id="warn" hidden>Put the live website address in first (or set <code>siteUrl</code> in config.js). These cards point at this preview, which guests can't open.</p>
+</div>
+<div class="sheet" id="sheet"></div>
+<script src="config.js"></script>
+<script src="qrcode.js"></script>
+<script>
+(function () {
+  var C = window.AP_CONFIG || {};
+  var url = document.getElementById("url"), from = document.getElementById("from"), to = document.getElementById("to");
+  var base = C.siteUrl || (location.origin + location.pathname.replace(/[^\/]*$/, ""));
+  url.value = base; to.value = Math.min(C.tables || 12, 12); to.max = from.max = C.tables || 30;
+  function qrSvg(text) {
+    var q = qrcode(0, "Q"); q.addData(text); q.make();
+    var n = q.getModuleCount(), d = "";
+    for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + "," + r + "h1v1h-1z";
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + n + " " + n + '" shape-rendering="crispEdges"><path d="' + d + '" fill="#1C1612"/></svg>';
+  }
+  function link(n) { var u = url.value.trim() || base; if (!/\/$/.test(u) && !/\.html?$/.test(u)) u += "/"; if (/\/$/.test(u)) u += "menu.html"; return u + (u.indexOf("?") < 0 ? "?" : "&") + "t=" + n; }
+  function render() {
+    var a = Math.max(1, +from.value || 1), b = Math.max(a, +to.value || a), h = "";
+    var u = url.value.trim();
+    document.getElementById("warn").hidden = !!u && !/claude|localhost|127\.0\.0\.1/.test(u);
+    for (var n = a; n <= b; n++) {
+      h += '<section class="card"><i class="star s1"></i><i class="star s2"></i><i class="star s3"></i><i class="star s4"></i>' +
+        '<img class="logo" src="img/brand/arabian-palace-logo-dark.svg" alt="Arabian Palace">' +
+        '<div class="ar">القصر العربي</div>' +
+        '<div class="t"><small>Table · طاولة · Meza</small>' + n + "</div>" +
+        '<div class="qr">' + qrSvg(link(n)) + "</div>" +
+        '<div class="how"><div><b>Scan to see the menu and order</b></div><div class="ar2">امسح الرمز لتصفّح القائمة والطلب</div><div>Changanua uone menyu na uagize</div></div>' +
+        '<div class="halal">100% halal · <span>حلال</span></div></section>';
+    }
+    document.getElementById("sheet").innerHTML = h;
+  }
+  [url, from, to].forEach(function (el) { el.addEventListener("input", render); });
+  document.getElementById("print").addEventListener("click", function () { window.print(); });
+  render();
+})();
+</script>
+</body>
+</html>
