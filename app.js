@@ -42,7 +42,7 @@
   var ITEMS = [], BY = {}, CATS = D.categories;
   CATS.forEach(function (c) {
     c.items.forEach(function (it) {
-      it.id = slug(it.name); it.cat = c.id; it.ix = ITEMS.length;
+      it.id = it.id || slug(it.name); it.cat = c.id; it.ix = ITEMS.length;   // `id` in menu-data.js keeps photos, translations and ratings when a name changes
       ITEMS.push(it); BY[it.id] = it;
     });
   });
