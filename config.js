@@ -1,26 +1,26 @@
 /* =====================================================================
    ARABIAN PALACE — SITE SETTINGS
    ---------------------------------------------------------------------
-   siteUrl     Public address of the website once it is live, e.g.
-               "https://arabianpalace.co.ke/". Used by tables.html to print
-               the QR codes. Leave "" while testing.
-   tables      How many numbered tables have a QR card.
-   tablePicker true lets guests pick a table by hand ("Choose your table").
-               Set false once the QR cards are on the tables, so only a scan
-               opens ordering.
-   backend     Where ratings and table orders are kept.
+   siteUrl     Public address of the website. Used by tables.html for the
+               QR codes and by the build for Google (canonical links, sitemap).
+   whatsapp    The WhatsApp number online orders and complaints go to,
+               country code first, digits only.
+   orderTypes  What guests can choose when they order online:
+               ["delivery", "pickup"], ["delivery"] or ["pickup"].
+               In the restaurant, the QR codes on the tables open the menu
+               for looking only; the waiter takes the order.
+   backend     Where dish ratings and reviews are kept.
                  scriptUrl   the Google Apps Script web-app URL from
-                             backend/README.md. When it is "" the site keeps
-                             ratings and orders on the guest's own device
-                             (fine for a demo, not for the restaurant).
-   kitchenKey  Not stored here. The kitchen screen asks for it once.
+                             backend/README.md. When it is "" each guest's
+                             ratings stay on their own phone.
    halal       Fill these in to print the certificate line in the halal
                section, e.g. certifier: "Kenya Bureau of Halal Certification".
    ===================================================================== */
 window.AP_CONFIG = {
-  siteUrl: "",
-  tables: 30,
-  tablePicker: true,
+  siteUrl: "https://arabianpalace.co.ke/",
+  whatsapp: "254797666667",
+  phone: "+254797666667",
+  orderTypes: ["delivery", "pickup"],
   backend: {
     scriptUrl: ""
   },
@@ -29,7 +29,5 @@ window.AP_CONFIG = {
     number: "",
     validUntil: ""
   },
-  profilePages: 6,
-  whatsapp: "254797666667",
-  phone: "+254797666667"
+  profilePages: 6
 };

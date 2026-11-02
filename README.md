@@ -1,10 +1,9 @@
-# Arabian Palace — website (test preview)
+# Arabian Palace — website
 
-Test copy of the Arabian Palace restaurant website (Marcus Garvey Road, Kilimani, Nairobi), published with GitHub Pages for review before launch. It is hidden from search engines.
+The website of Arabian Palace, a halal Arabian and Yemeni restaurant on Marcus Garvey Road, Kilimani, Nairobi.
+Live at **https://arabianpalace.co.ke** (GitHub Pages).
 
 - Website: `index.html`
-- Online menu for the tables (QR): `menu.html?t=7`
-- Admin / kitchen screen: `admin.html`
-- QR table cards: `tables.html`
-
-In this test copy, orders, waiter calls, complaints and ratings stay on the device that sent them (no Google Sheet connected yet), so open the admin screen on the same phone or computer to see them.
+- Online menu: `menu.html` (orders go to the restaurant on WhatsApp)
+- Menu for the table QR codes (look only, the waiter takes the order): `menu.html?qr`
+- Printable menu QR cards: `tables.html`

@@ -1,7 +1,7 @@
 /* =====================================================================
    ARABIAN PALACE — site behaviour
-   languages · menu · dish sheet · photo viewer · ratings · table ordering
-   · kitchen screen (#kitchen) · gallery · profile viewer
+   languages · menu · dish sheet · photo viewer · ratings · online orders
+   sent on WhatsApp · menu-only view for the table QR codes · gallery · profile viewer
    ===================================================================== */
 (function () {
   "use strict";
@@ -66,9 +66,8 @@
 
   /* ---------------- i18n of static markup ---------------- */
   function applyStatic() {
-    var adm = adminMode();   // the admin screen is English and left-to-right for the staff, whatever language was last chosen
-    document.documentElement.lang = adm ? "en" : lang;
-    document.documentElement.dir = lang === "ar" && !adm ? "rtl" : "ltr";
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
     $$("[data-i18n]").forEach(function (el) { el.textContent = t(el.getAttribute("data-i18n")); });
     $$("[data-i18n-html]").forEach(function (el) { el.innerHTML = t(el.getAttribute("data-i18n-html")); });
     $$("[data-i18n-attr]").forEach(function (el) {
@@ -113,7 +112,7 @@
     star: '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star" width="24" height="24"/></svg>',
     seal: '<svg viewBox="0 0 120 120" aria-hidden="true"><use href="#o-halal" width="120" height="120"/></svg>',
     orn: '<svg viewBox="0 0 40 40" aria-hidden="true"><use href="#o-star" width="40" height="40"/></svg>',
-    table: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16M6 9v10M18 9v10M3 9l1.5-4h15L21 9"/></svg>',
+    wa: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 11.6a8.5 8.5 0 0 1-12.4 7.6L3.5 20.5l1.4-4.3a8.5 8.5 0 1 1 15.6-4.6Z"/><path d="M9 8.6c.2-.5.6-.6 1-.5l.9 2.1-.7.9a6 6 0 0 0 2.8 2.8l.9-.7 2.1.9c.1.4 0 .8-.5 1.1-1 .7-2.6.4-4.3-1.1-1.8-1.6-2.8-3.6-2.2-4.6Z"/></svg>',
     qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2M14 18h2M18 18h2v2"/></svg>'
   };
   function stars(v, cls) {
@@ -126,28 +125,19 @@
   var RAT = {}, backend = null, rated = lsGet("ap-rated", {});
   function ratingOf(id) { var r = RAT[id]; return r && r.n ? { n: r.n, avg: r.s / r.n } : null; }
 
-  /* ---------------- table mode ---------------- */
-  var TABLES = Math.max(1, +C.tables || 30);
-  var table = (function () {
-    var q = parseInt(params.get("t") || params.get("table"), 10);
-    if (q >= 1 && q <= TABLES) { ssSet("ap-table", q); return q; }
-    var s = ssGet("ap-table", null); return s >= 1 && s <= TABLES ? s : null;
+  /* ---------------- QR on the table: the menu to look at, the waiter takes the order ---------------- */
+  var QR = (function () {
+    if (params.has("qr") || params.has("t") || params.has("table")) { ssSet("ap-qr", 1); return true; }
+    return !!ssGet("ap-qr", 0);
   })();
-  function setTable(n) {
-    table = n; ssSet("ap-table", n);
-    if (!n) { cart = []; saveCart(); }
-    applyTable(); renderMenu(); renderCart();
-  }
-  function applyTable() {
-    document.body.classList.toggle("at-table", !!table);
-    var chip = $("#tableChip"); chip.classList.toggle("on", !!table);
-    $("#tableChipText").innerHTML = table ? '<span class="tl">' + esc(t("tbl.chip", { n: "" }).trim()) + "</span> <b>" + table + "</b>" : "";
-    $("#cartBtn").classList.toggle("on", !!table);
+  var TYPES = (C.orderTypes && C.orderTypes.length ? C.orderTypes : ["delivery", "pickup"]).filter(function (x) { return x === "delivery" || x === "pickup"; });
+  function applyMode() {
+    document.body.classList.toggle("browse-only", QR);
+    $("#cartBtn").classList.toggle("on", !QR);
     var dine = $("#dine");
-    dine.classList.toggle("at-table", !!table);
-    if (table) dine.innerHTML = ICON.table + '<span>' + t("dine.at", { n: table }) + '</span><button type="button" class="linkish" data-act="pick-table">' + esc(t("dine.change")) + "</button>";
-    else dine.innerHTML = ICON.qr + "<span>" + esc(t("dine.not")) + "</span>" + (C.tablePicker ? '<button type="button" class="linkish" data-act="pick-table">' + esc(t("dine.pick")) + "</button>" : "");
-    $("#drawerTable").textContent = table ? t("cart.table", { n: table }) : "";
+    dine.classList.toggle("qr", QR);
+    dine.innerHTML = QR ? ICON.qr + "<span>" + esc(t("dine.qr")) + "</span>"
+      : ICON.wa + "<span>" + esc(t(TYPES.length > 1 ? "dine.online" : TYPES[0] === "pickup" ? "dine.online.p" : "dine.online.d")) + "</span>";
     updateCartBadges();
   }
 
@@ -389,11 +379,7 @@
   }
   function fillOrder(it) {
     var o = $("#shOrder");
-    if (!table) {
-      o.innerHTML = '<div class="sh-note">' + ICON.qr + "<span>" + esc(t("sh.tableonly")) + "</span>" +
-        (C.tablePicker ? '<button type="button" class="linkish" data-act="pick-table">' + esc(t("sh.pick")) + "</button>" : "") + "</div>";
-      return;
-    }
+    if (QR) { o.innerHTML = '<div class="sh-note">' + ICON.qr + "<span>" + esc(t("sh.qronly")) + "</span></div>"; return; }
     var chips = "";
     if (it.variants) chips = it.variants.map(function (v, i) { return '<button type="button" class="chip" data-add="' + it.id + '" data-v="' + i + '">' + esc(term(v.label)) + "<b>" + num(v.price) + "</b></button>"; }).join("");
     else if (it.choices) chips = it.choices.items.map(function (c, i) { return '<button type="button" class="chip" data-add="' + it.id + '" data-c="' + i + '">' + esc(term(c)) + "</button>"; }).join("");
@@ -648,13 +634,13 @@
     };
   }
 
-  /* ---------------- cart (table orders) ---------------- */
-  var cart = table ? ssGet("ap-cart", []) : [];
+  /* ---------------- basket (online orders, sent on WhatsApp) ---------------- */
+  var cart = QR ? [] : ssGet("ap-cart", []);
   function saveCart() { ssSet("ap-cart", cart); }
   function cartCount() { return cart.reduce(function (a, l) { return a + l.qty; }, 0); }
   function cartSum() { return cart.reduce(function (a, l) { return a + l.qty * l.price; }, 0); }
   function addToCart(id, vi, ci, btn) {
-    var it = BY[id]; if (!it || !table) return;
+    var it = BY[id]; if (!it || QR) return;
     var price = it.price, opt = "", key = id;
     if (vi != null && it.variants) { price = it.variants[vi].price; opt = it.variants[vi].label; key += "|v" + vi; }
     if (ci != null && it.choices) { opt = it.choices.items[ci]; key += "|c" + ci; }
@@ -670,7 +656,7 @@
     var n = cartCount(), c = $("#cartCount");
     c.textContent = n; c.classList.toggle("on", n > 0);
     var ob = $("#orderbar");
-    ob.classList.toggle("on", !!table && n > 0 && !isOpen("drawer"));
+    ob.classList.toggle("on", !QR && n > 0 && !isOpen("drawer"));
     $("#obCount").textContent = n === 1 ? t("ob.item") : t("ob.items", { n: n });
     $("#obSum").textContent = ksh(cartSum());
     var ac = $("#abCount"); if (ac) { ac.textContent = n; ac.classList.toggle("on", n > 0); $("#abSum").textContent = n ? ksh(cartSum()) : ""; }
@@ -687,8 +673,7 @@
         '<div class="p">' + ksh(l.qty * l.price) + "</div></div>";
     }).join("");
     $("#tCount").textContent = cartCount(); $("#tSum").textContent = ksh(cartSum());
-    var wa = $("#waBtn");
-    if (wa) { wa.textContent = t("cart.wa"); wa.hidden = !(backend && backend.type === "local") && !lastSendFailed; }
+    renderType();
   }
   $("#lines").addEventListener("click", function (e) {
     var b = e.target.closest("[data-q]"); if (!b) return;
@@ -710,49 +695,50 @@
   $("#scrim").addEventListener("click", function () { var top = topLayer(); if (top === "drawer" || top === "sheet") closeLayer(top); });
   $("#emptyGo").addEventListener("click", function () { closeLayer("drawer"); $("#menu").scrollIntoView({ behavior: "smooth" }); });
 
-  var lastSendFailed = false, orderUnsub = null;
-  function waText() {
-    var s = t("wa.order", { n: table }) + "\n" + cart.map(function (l) { var it = BY[l.id]; return l.qty + " × " + (it ? it.name : l.id) + (l.opt ? " (" + l.opt + ")" : "") + " — " + ksh(l.qty * l.price); }).join("\n");
-    var notes = $("#fNotes").value.trim(); if (notes) s += "\n" + notes;
-    return s + "\n" + t("cart.subtotal") + ": " + ksh(cartSum());
-  }
-  function sendOrder() {
-    if (!table) { toast(t("cart.notable")); return; }
-    if (!cart.length || !backend) return;
-    var btn = $("#sendBtn"); btn.disabled = true; $("#sendLabel").textContent = t("cart.sending");
-    var order = {
-      table: table, lang: lang, notes: $("#fNotes").value, total: cartSum(),
-      lines: cart.map(function (l) { var it = BY[l.id]; return { id: l.id, name: it ? it.name : l.id, opt: l.opt, qty: l.qty, price: l.price }; })
-    };
-    backend.sendOrder(order).then(function (o) {
-      lastSendFailed = false;
-      cart = []; saveCart(); $("#fNotes").value = "";
-      $("#sent").classList.add("on");
-      $("#sentNo").textContent = t("cart.sent.no", { no: o.no, n: o.table });
-      $("#sentMsg").textContent = backend.type === "local" ? t("cart.sent.local") : t("cart.sent.p");
-      $("#track").hidden = false; trackStatus("new");
-      if (orderUnsub) orderUnsub();
-      if (o.id) orderUnsub = backend.watchOrder(o.id, function (x) { trackStatus(x.status); });
-      ssSet("ap-last-order", { id: o.id, no: o.no, table: o.table });
-      renderCart(); updateCartBadges();
-    }).catch(function () {
-      lastSendFailed = true; toast(t("cart.err")); renderCart();
-    }).then(function () { btn.disabled = false; $("#sendLabel").textContent = t("cart.send"); });
-  }
-  function trackStatus(s) {
-    var order = ["new", "accepted", "ready"], k = order.indexOf(s === "done" ? "ready" : s);
-    $$("#track div").forEach(function (d, i) { d.classList.toggle("done", i <= k); });
-  }
-  $("#sendBtn").addEventListener("click", sendOrder);
-  $("#newOrder").addEventListener("click", function () { $("#sent").classList.remove("on"); $("#track").hidden = true; renderCart(); closeLayer("drawer"); });
+  var otype = ssGet("ap-otype", TYPES[0]); if (TYPES.indexOf(otype) < 0) otype = TYPES[0];
   (function () {
-    var foot = $("#drawerFoot"), a = document.createElement("a");
-    a.id = "waBtn"; a.className = "btn btn-line"; a.target = "_blank"; a.rel = "noopener"; a.hidden = true;
-    a.href = "#"; a.addEventListener("click", function () { a.href = "https://wa.me/" + (C.whatsapp || "254797666667") + "?text=" + encodeURIComponent(waText()); });
-    foot.insertBefore(a, $("#sendFine"));
+    var g = $("#oType");
+    g.innerHTML = TYPES.map(function (x) { return '<button type="button" role="radio" data-otype="' + x + '"><span data-i18n="cart.' + x + '"></span></button>'; }).join("");
+    $("#oTypeWrap").hidden = TYPES.length < 2;
+    g.addEventListener("click", function (e) { var b = e.target.closest("[data-otype]"); if (!b) return; otype = b.getAttribute("data-otype"); ssSet("ap-otype", otype); renderType(); });
+    var keep = ssGet("ap-who", {});
+    $("#oName").value = keep.name || ""; $("#oAddr").value = keep.addr || "";
+    ["#oName", "#oAddr", "#fNotes"].forEach(function (sel) { $(sel).addEventListener("input", function () { ssSet("ap-who", { name: $("#oName").value, addr: $("#oAddr").value }); $("#oErr").classList.remove("on"); }); });
   })();
+  function renderType() {
+    $$("#oType [data-otype]").forEach(function (b) { var on = b.getAttribute("data-otype") === otype; b.setAttribute("aria-checked", String(on)); b.querySelector("span").textContent = t("cart." + b.getAttribute("data-otype")); });
+    $("#oAddrField").hidden = otype !== "delivery";
+  }
+  function waNumber() { return String(C.whatsapp || "254797666667").replace(/\D/g, ""); }
+  function waLink(text) { return "https://wa.me/" + waNumber() + "?text=" + encodeURIComponent(text); }
+  function waText() {
+    var name = $("#oName").value.trim(), addr = $("#oAddr").value.trim(), notes = $("#fNotes").value.trim();
+    var s = t("wa.hello") + "\n\n" + cart.map(function (l) {
+      var it = BY[l.id];
+      return "• " + l.qty + " × " + (it ? it.name : l.id) + (lang !== "en" && it ? " / " + nm(it) : "") + (l.opt ? " (" + l.opt + ")" : "") + " — " + ksh(l.qty * l.price);
+    }).join("\n");
+    s += "\n\n" + t("cart.subtotal") + ": " + ksh(cartSum());
+    s += "\n" + t("wa.name") + ": " + name;
+    s += "\n" + (otype === "delivery" ? t("wa.delivery") + ": " + addr : t("wa.pickup"));
+    if (notes) s += "\n" + t("wa.notes") + ": " + notes;
+    return s;
+  }
+  function sendOrder(e) {
+    var a = $("#sendBtn"), err = $("#oErr");
+    if (!cart.length) { e.preventDefault(); return; }
+    var miss = !$("#oName").value.trim() ? ["cart.need.name", "#oName"] : otype === "delivery" && !$("#oAddr").value.trim() ? ["cart.need.addr", "#oAddr"] : null;
+    if (miss) { e.preventDefault(); err.textContent = t(miss[0]); err.classList.add("on"); $(miss[1]).focus(); return; }
+    a.href = waLink(waText());   // the link opens WhatsApp (app or web) with the order written out
+    lastWa = a.href;
+    setTimeout(function () { $("#sent").classList.add("on"); renderCart(); }, 400);
+  }
+  var lastWa = "";
+  $("#sendBtn").addEventListener("click", sendOrder);
+  $("#waAgain").addEventListener("click", function () { if (lastWa) $("#waAgain").href = lastWa; });
+  $("#newOrder").addEventListener("click", function () { cart = []; saveCart(); $("#fNotes").value = ""; $("#sent").classList.remove("on"); renderCart(); updateCartBadges(); closeLayer("drawer"); });
+  $("#backOrder").addEventListener("click", function () { $("#sent").classList.remove("on"); renderCart(); });
 
-  /* ---------------- table picker ---------------- */
+  /* ---------------- modals ---------------- */
   function openModal(id, onClose) {
     var m = $("#" + id); m.classList.add("on"); m.setAttribute("aria-hidden", "false");
     pushLayer(id, function () { m.classList.remove("on"); m.setAttribute("aria-hidden", "true"); if (onClose) onClose(); });
@@ -760,21 +746,6 @@
   }
   $$("[data-close-modal]").forEach(function (b) { b.addEventListener("click", function () { closeLayer(b.closest(".modal").id); }); });
   $$(".modal").forEach(function (m) { m.addEventListener("click", function (e) { if (e.target === m) closeLayer(m.id); }); });
-  function openTablePicker() {
-    var g = $("#tblGrid"), h = "";
-    for (var n = 1; n <= TABLES; n++) h += '<button type="button" data-tbl="' + n + '"' + (n === table ? ' class="cur" aria-current="true"' : "") + ">" + n + "</button>";
-    g.innerHTML = h;
-    var leave = $("#tblLeave");
-    if (!leave) { leave = document.createElement("button"); leave.type = "button"; leave.id = "tblLeave"; leave.className = "clear"; leave.style.marginTop = "1rem"; g.after(leave); leave.addEventListener("click", function () { closeLayer("tableModal"); setTable(null); }); }
-    leave.textContent = t("tbl.leave"); leave.hidden = !table;
-    openModal("tableModal");
-  }
-  $("#tblGrid").addEventListener("click", function (e) {
-    var b = e.target.closest("[data-tbl]"); if (!b) return;
-    var n = +b.getAttribute("data-tbl"); closeLayer("tableModal"); setTable(n);
-    if (sheetItem) fillOrder(sheetItem);
-  });
-  $("#tableChip").addEventListener("click", openTablePicker);
 
   /* ---------------- credits ---------------- */
   $("#creditsBtn").addEventListener("click", function () {
@@ -829,8 +800,6 @@
     }
     var ad = e.target.closest("[data-add]");
     if (ad) { addToCart(ad.getAttribute("data-add"), ad.hasAttribute("data-v") ? +ad.getAttribute("data-v") : null, ad.hasAttribute("data-c") ? +ad.getAttribute("data-c") : null, ad); return; }
-    var act = e.target.closest("[data-act]");
-    if (act && act.getAttribute("data-act") === "pick-table") { openTablePicker(); return; }
   });
 
   /* stand-in photo failed to load: swap in the ornament, never a broken image */
@@ -867,208 +836,21 @@
     });
   }
 
-  function renderAll() { HAY = {}; renderSignatures(); renderMenu(); renderGallery(); renderSouq(); applyTable(); renderCart(); reveal(); }
+  function renderAll() { HAY = {}; renderSignatures(); renderMenu(); renderGallery(); renderSouq(); applyMode(); renderCart(); reveal(); }
 
-  /* ---------------- admin screen (#admin): orders, waiter calls, complaints, reviews ---------------- */
-  function adminMode() { return document.documentElement.getAttribute("data-view") === "admin"; }
-  var A = { unsub: null, seen: null, tab: "orders", feed: { orders: [], calls: [], complaints: [] }, sound: lsGet("ap-k-sound", true), ac: null, remind: null, reviews: [] };
-  function tone(freqs, gap, len, vol) {
-    if (!A.sound || !A.ac) return;
-    try {
-      var ac = A.ac; if (ac.state === "suspended") ac.resume();
-      freqs.forEach(function (f, i) {
-        var d = i * gap, o = ac.createOscillator(), g = ac.createGain();
-        o.type = "sine"; o.frequency.value = f; o.connect(g); g.connect(ac.destination);
-        g.gain.setValueAtTime(.0001, ac.currentTime + d); g.gain.exponentialRampToValueAtTime(vol || .35, ac.currentTime + d + .02);
-        g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + d + (len || .45)); o.start(ac.currentTime + d); o.stop(ac.currentTime + d + (len || .45) + .05);
-      });
-    } catch (e) {}
-  }
-  var SOUND = {
-    order: function () { tone([880, 1175, 1568], .18, .5); },
-    call: function () { tone([1319, 1319, 1319], .22, .25, .3); },
-    complaint: function () { tone([523, 392], .3, .6, .3); },
-    remind: function () { tone([988], 0, .35, .18); }
-  };
-  function ago(ts) { var m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.floor(m / 60) + " h " + (m % 60) + " min ago"; }
-  function startAdmin() {
-    document.documentElement.setAttribute("data-view", "admin");
-    var k = $("#admin");
-    if (!k) { k = document.createElement("div"); k.id = "admin"; document.body.appendChild(k); }
-    k.innerHTML =
-      '<header class="ad-head"><img src="img/brand/arabian-palace-logo-dark.svg" alt="" width="48" height="48"><div><h1>Arabian Palace · Admin</h1><span id="adMode"></span></div>' +
-      '<div class="ad-tools"><button type="button" class="btn btn-line sm" id="adSound"></button><a class="btn btn-line sm" href="tables.html" target="_blank" rel="noopener">Table QR cards</a><a class="btn btn-line sm" href="?view=menu" id="adMenu">Online menu</a><a class="btn btn-line sm" href="?view=site" id="adExit">Website</a></div></header>' +
-      '<div id="adStart" class="ad-start"><div><h2>Start your shift</h2><p>Tap once so this screen can ring for new orders, waiter calls and complaints. Keep it open on the kitchen tablet or the till.</p><button type="button" class="btn btn-gold" id="adGo">Start receiving orders</button></div></div>' +
-      '<div id="adKey" class="k-key" hidden><p>Enter the admin key (the KITCHEN_KEY from the Apps Script setup).</p><form id="adKeyForm"><input id="adKeyIn" type="password" autocomplete="off" placeholder="Admin key"><button class="btn btn-gold sm">Open</button></form><p class="err" id="adErr"></p></div>' +
-      '<p class="ad-denied" id="adDenied" hidden>Only the restaurant team can open this screen.</p>' +
-      '<nav class="ad-tabs" id="adTabs"><button type="button" data-tab="orders">Orders <b id="cOrders"></b></button><button type="button" data-tab="calls">Waiter calls <b id="cCalls"></b></button><button type="button" data-tab="complaints">Complaints <b id="cComplaints"></b></button><button type="button" data-tab="reviews">Reviews</button></nav>' +
-      '<section class="ad-pane" data-pane="orders"><div class="k-board"><section data-col="new"><h2>New</h2><div class="k-list"></div></section><section data-col="accepted"><h2>Preparing</h2><div class="k-list"></div></section><section data-col="ready"><h2>Ready to serve</h2><div class="k-list"></div></section></div><details class="k-done"><summary>Served today</summary><div class="k-list" data-col="done"></div></details></section>' +
-      '<section class="ad-pane" data-pane="calls"><div class="ad-list" id="adCalls"></div></section>' +
-      '<section class="ad-pane" data-pane="complaints"><div class="ad-list" id="adComplaints"></div></section>' +
-      '<section class="ad-pane" data-pane="reviews"><div class="ad-rev-head"><p id="adRevSum"></p><button type="button" class="btn btn-line sm" id="adRevRefresh">Refresh</button></div><div class="ad-list" id="adReviews"></div></section>';
-    soundLabel();
-    $("#adSound").addEventListener("click", function () { A.sound = !A.sound; lsSet("ap-k-sound", A.sound); soundLabel(); unlock(); if (A.sound) SOUND.order(); });
-    $("#adGo").addEventListener("click", function () { unlock(); SOUND.order(); $("#adStart").hidden = true; });
-    $("#adMenu").addEventListener("click", function (e) { e.preventDefault(); stopAdmin(); setView("menu"); });
-    $("#adExit").addEventListener("click", function (e) { e.preventDefault(); stopAdmin(); setView("site"); });
-    $("#adKeyForm").addEventListener("submit", function (e) { e.preventDefault(); window.AP_BACKEND.kitchenKey($("#adKeyIn").value.trim()); $("#adKey").hidden = true; runAdmin(); });
-    $("#adTabs").addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) showTab(b.getAttribute("data-tab")); });
-    $("#adRevRefresh").addEventListener("click", loadAdminReviews);
-    k.addEventListener("click", adminAction);
-    showTab(A.tab);
-    window.AP_BACKEND.ready.then(function (b) { backend = b; runAdmin(); });
-  }
-  function unlock() { try { if (!A.ac) { var AC = window.AudioContext || window.webkitAudioContext; A.ac = new AC(); } if (A.ac.state === "suspended") A.ac.resume(); } catch (e) {} }
-  function soundLabel() { var b = $("#adSound"); if (b) b.textContent = A.sound ? "Sound: on" : "Sound: off"; }
-  function showTab(tab) {
-    A.tab = tab;
-    $$("#adTabs [data-tab]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-tab") === tab); });
-    $$("#admin .ad-pane").forEach(function (p) { p.hidden = p.getAttribute("data-pane") !== tab; });
-    if (tab === "reviews") loadAdminReviews();
-  }
-  function adErr(m) { var e = $("#adErr"); if (e) { e.textContent = m; $("#adKey").hidden = false; } }
-  function runAdmin() {
-    $("#adMode").textContent = backend.type === "script" ? "Live · Google Sheet" : backend.type === "db" ? "Live · preview database" : "Demo · this device only (connect the Google Sheet for real orders)";
-    if (backend.type === "db" && backend.user && !A.checked) {
-      var u = backend.user;
-      Promise.all([u.isOwner ? u.isOwner() : false, u.canEdit ? u.canEdit() : false]).then(function (r) {
-        if (!(r[0] || r[1])) { $("#adDenied").hidden = false; $("#adStart").hidden = true; return; }
-        A.checked = true; runAdmin();
-      }, function () { A.checked = true; runAdmin(); });
-      return;
-    }
-    if (backend.type === "script" && !window.AP_BACKEND.kitchenKey()) { $("#adKey").hidden = false; return; }
-    if (A.unsub) A.unsub();
-    A.seen = null;
-    A.unsub = backend.watchFeed(drawAdmin, function () { adErr("Couldn't load the live feed. Check the admin key and the connection."); });
-    clearInterval(A.remind);
-    A.remind = setInterval(function () {   // keep reminding while something is waiting
-      var f = A.feed, waiting = f.orders.some(function (o) { return (o.status || "new") === "new"; }) || f.calls.some(function (c) { return (c.status || "new") === "new"; });
-      if (waiting) SOUND.remind();
-    }, 20000);
-  }
-  function drawAdmin(feed) {
-    var cut = Date.now() - 16 * 3600e3;
-    var orders = (feed.orders || []).filter(function (o) { return o.ts > cut; }).sort(function (a, b) { return a.ts - b.ts; });
-    var calls = (feed.calls || []).filter(function (o) { return o.ts > cut; }).sort(function (a, b) { return b.ts - a.ts; });
-    var comps = (feed.complaints || []).slice().sort(function (a, b) { return b.ts - a.ts; });
-    A.feed = { orders: orders, calls: calls, complaints: comps };
-    // alerts for anything new since the last look
-    var ids = {}; orders.concat(calls, comps).forEach(function (x) { ids[x.id] = 1; });
-    if (A.seen) {
-      var fresh = function (x) { return (x.status || "new") === "new" && !A.seen[x.id]; };
-      if (orders.some(fresh)) SOUND.order(); else if (calls.some(fresh)) SOUND.call(); else if (comps.some(fresh)) SOUND.complaint();
-      if (orders.some(fresh) || calls.some(fresh) || comps.some(fresh)) flashTitle();
-    }
-    A.seen = ids;
-    var nNew = orders.filter(function (o) { return (o.status || "new") === "new"; }).length, nCalls = calls.filter(function (c) { return (c.status || "new") === "new"; }).length,
-      nComp = comps.filter(function (c) { return (c.status || "new") === "new"; }).length;
-    $("#cOrders").textContent = nNew || ""; $("#cCalls").textContent = nCalls || ""; $("#cComplaints").textContent = nComp || "";
-    document.title = (nNew + nCalls + nComp ? "(" + (nNew + nCalls + nComp) + ") " : "") + "Arabian Palace · Admin";
-    // orders board
-    var next = { new: ["accepted", "Accept"], accepted: ["ready", "Ready"], ready: ["done", "Served"] };
-    ["new", "accepted", "ready", "done"].forEach(function (col) {
-      var box = $('#admin [data-col="' + col + '"]'); box = box.classList.contains("k-list") ? box : box.querySelector(".k-list");
-      var rows = orders.filter(function (o) { return (o.status || "new") === col; });
-      if (col === "done") rows = rows.reverse().slice(0, 40);
-      box.innerHTML = rows.length ? rows.map(function (o) {
-        return '<article class="k-card s-' + col + '"><div class="k-top"><b class="k-tbl">Table ' + esc(o.table) + '</b><span>#' + esc(o.no) + " · " + esc(ago(o.ts)) + "</span></div>" +
-          '<ul>' + (o.lines || []).map(function (l) { return "<li><b>" + esc(l.qty) + "×</b> " + esc(l.name) + (l.opt ? " <i>" + esc(l.opt) + "</i>" : "") + "</li>"; }).join("") + "</ul>" +
-          (o.notes ? '<p class="k-notes">' + esc(o.notes) + "</p>" : "") +
-          '<div class="k-foot"><span>' + ksh(o.total || 0) + (o.lang && o.lang !== "en" ? " · " + esc(String(o.lang).toUpperCase()) : "") + "</span>" +
-          (next[col] ? '<button type="button" class="btn btn-ink sm" data-ost="' + next[col][0] + '" data-id="' + esc(o.id) + '">' + next[col][1] + "</button>" : "") +
-          (col === "new" ? '<button type="button" class="clear" data-ost="cancelled" data-id="' + esc(o.id) + '">Cancel</button>' : "") + "</div></article>";
-      }).join("") : '<p class="k-empty">Nothing here</p>';
-    });
-    var h = $('#admin section[data-col="new"] h2'); if (h) h.textContent = "New (" + nNew + ")";
-    // waiter calls
-    $("#adCalls").innerHTML = calls.length ? calls.map(function (c) {
-      var open = (c.status || "new") === "new";
-      return '<article class="ad-item' + (open ? " open" : "") + '"><div class="ad-ic ' + (c.type === "bill" ? "bill" : "waiter") + '">' + (c.type === "bill" ? "Bill" : "Waiter") + '</div>' +
-        '<div class="ad-main"><b>Table ' + esc(c.table) + "</b> " + (c.type === "bill" ? "asked for the bill" : "is calling a waiter") + (c.note ? " · " + esc(c.note) : "") + '<span class="ad-time">' + esc(ago(c.ts)) + (c.lang && c.lang !== "en" ? " · " + esc(String(c.lang).toUpperCase()) : "") + "</span></div>" +
-        (open ? '<button type="button" class="btn btn-ink sm" data-cst="done" data-id="' + esc(c.id) + '">On my way</button>' : '<span class="ad-done">Done</span>') + "</article>";
-    }).join("") : '<p class="k-empty">No calls yet today.</p>';
-    // complaints
-    var TOP = { food: "The food", service: "The service", wait: "Waiting time", cleanliness: "Cleanliness", other: "Something else" };
-    $("#adComplaints").innerHTML = comps.length ? comps.map(function (c) {
-      var st = c.status || "new";
-      return '<article class="ad-item cp' + (st === "new" ? " open" : "") + '"><div class="ad-ic complaint">' + esc(TOP[c.topic] || "Other") + '</div>' +
-        '<div class="ad-main"><b>' + (c.table ? "Table " + esc(c.table) : "No table given") + "</b>" + (c.name ? " · " + esc(c.name) : "") + (c.phone ? ' · <a href="tel:' + esc(String(c.phone).replace(/\s/g, "")) + '">' + esc(c.phone) + "</a>" : "") +
-        '<p class="ad-text" dir="auto">' + esc(c.text) + '</p><span class="ad-time">' + esc(ago(c.ts)) + (c.lang && c.lang !== "en" ? " · " + esc(String(c.lang).toUpperCase()) : "") + "</span></div>" +
-        (st === "resolved" ? '<span class="ad-done">Resolved</span>' : '<button type="button" class="btn btn-ink sm" data-pst="resolved" data-id="' + esc(c.id) + '">Resolved</button>') + "</article>";
-    }).join("") : '<p class="k-empty">No complaints. Long may it last.</p>';
-  }
-  var flashT;
-  function flashTitle() {
-    clearInterval(flashT); var n = 0, base = document.title;
-    flashT = setInterval(function () { document.title = n++ % 2 ? base : "● New · Arabian Palace"; if (n > 12) { clearInterval(flashT); document.title = base; } }, 900);
-  }
-  function loadAdminReviews() {
-    if (!backend || !backend.allReviews) return;
-    backend.allReviews().then(function (rows) {
-      A.reviews = rows || [];
-      var by = {}; A.reviews.forEach(function (r) { if (r.hidden) return; var x = by[r.item] || (by[r.item] = { n: 0, s: 0 }); x.n++; x.s += +r.stars || 0; });
-      var low = Object.keys(by).map(function (k) { return [k, by[k].s / by[k].n, by[k].n]; }).filter(function (x) { return x[1] < 4; }).sort(function (a, b) { return a[1] - b[1]; }).slice(0, 5);
-      $("#adRevSum").innerHTML = A.reviews.length + " reviews" + (low.length ? ' · Needs attention: ' + low.map(function (x) { return esc((BY[x[0]] || {}).name || x[0]) + " (" + x[1].toFixed(1) + "★, " + x[2] + ")"; }).join(", ") : "");
-      $("#adReviews").innerHTML = A.reviews.length ? A.reviews.map(function (r) {
-        var it = BY[r.item];
-        return '<article class="ad-item rv' + (r.hidden ? " hid" : "") + '"><div class="ad-ic stars-ic">' + stars(r.stars) + '</div><div class="ad-main"><b>' + esc(it ? it.name : r.item) + "</b>" + (r.name ? " · " + esc(r.name) : "") +
-          (r.text ? '<p class="ad-text" dir="auto">' + esc(r.text) + "</p>" : "") + '<span class="ad-time">' + esc(ago(r.ts)) + (r.hidden ? " · hidden from the website" : "") + "</span></div>" +
-          '<button type="button" class="clear" data-rvh="' + (r.hidden ? "0" : "1") + '" data-id="' + esc(r.id) + '">' + (r.hidden ? "Show" : "Hide") + "</button></article>";
-      }).join("") : '<p class="k-empty">No reviews yet.</p>';
-    }).catch(function () { $("#adRevSum").textContent = "Couldn't load reviews."; });
-  }
-  function adminAction(e) {
-    var b = e.target.closest("[data-ost],[data-cst],[data-pst],[data-rvh]"); if (!b || !backend) return;
-    var id = b.getAttribute("data-id"), p;
-    b.disabled = true;
-    if (b.hasAttribute("data-ost")) p = backend.setStatus(id, b.getAttribute("data-ost"));
-    else if (b.hasAttribute("data-cst")) p = backend.setCallStatus(id, b.getAttribute("data-cst"));
-    else if (b.hasAttribute("data-pst")) p = backend.setComplaintStatus(id, b.getAttribute("data-pst"));
-    else p = backend.hideReview(id, b.getAttribute("data-rvh") === "1").then(loadAdminReviews);
-    p.catch(function () { b.disabled = false; adErr("Couldn't save that change. Check the connection."); });
-  }
-  function stopAdmin() { if (A.unsub) A.unsub(); A.unsub = null; clearInterval(A.remind); var k = $("#admin"); if (k) k.remove(); document.title = "Arabian Palace"; }
-  window.addEventListener("hashchange", function () { if ((location.hash === "#admin" || location.hash === "#kitchen") && !$("#admin")) startAdmin(); });
-
-  /* ---------------- views: website · online menu (QR) · admin ---------------- */
+  /* ---------------- views: website · online menu ---------------- */
   function setView(v) {
-    var html = document.documentElement, was = html.getAttribute("data-view");
+    var html = document.documentElement;
     html.setAttribute("data-view", v);
     try { var u = new URL(location.href); u.hash = ""; if (v === "site") u.searchParams.delete("view"); else u.searchParams.set("view", v); history.replaceState(null, "", u.toString()); } catch (e) {}
-    if (v === "admin") { applyStatic(); if (!$("#admin")) startAdmin(); return; }
-    if (was === "admin") stopAdmin();
     applyStatic(); renderAll(); window.scrollTo(0, 0);
-    if (v === "menu") askTable();
   }
-  function askTable() { if (document.documentElement.getAttribute("data-view") === "menu" && !table && !ssGet("ap-browsing", false)) setTimeout(openTablePicker, 350); }
   $$("#toMenuView, #toSiteView").forEach(function (a) { a.addEventListener("click", function (e) { e.preventDefault(); setView(a.id === "toMenuView" ? "menu" : "site"); }); });
 
-  /* ---------------- at the table: call a waiter, complain ---------------- */
-  function openCall() {
-    if (!table) { toast(t("call.notable")); openTablePicker(); return; }
-    $("#callSub").textContent = t("call.sub", { n: table });
-    $("#callDone").hidden = true;
-    $$(".call-opt").forEach(function (b) { b.disabled = false; });
-    openModal("callModal");
-  }
-  $$(".call-opt").forEach(function (b) {
-    b.addEventListener("click", function () {
-      var type = b.getAttribute("data-call"), key = "ap-call-" + type + "-" + table, last = ssGet(key, 0), done = $("#callDone");
-      if (Date.now() - last < 90000) { done.hidden = false; done.textContent = t("call.wait"); return; }
-      if (!backend) return;
-      $$(".call-opt").forEach(function (x) { x.disabled = true; });
-      backend.sendCall({ table: table, type: type, lang: lang }).then(function () {
-        ssSet(key, Date.now()); done.hidden = false; done.textContent = t(type === "bill" ? "call.sent.bill" : "call.sent.waiter", { n: table });
-        toast(t(type === "bill" ? "call.sent.bill" : "call.sent.waiter", { n: table }));
-        setTimeout(function () { if (isOpen("callModal")) closeLayer("callModal"); }, 2200);
-      }).catch(function () { done.hidden = false; done.textContent = t("call.err"); $$(".call-opt").forEach(function (x) { x.disabled = false; }); });
-    });
-  });
+  /* ---------------- complaint: straight to the manager on WhatsApp ---------------- */
   var cpTopic = "";
   function openComplaint() {
     $("#cpForm").hidden = false; $("#cpDone").hidden = true; $("#cpErr").classList.remove("on");
-    $("#cpTable").textContent = table ? t("cp.table", { n: table }) : "";
     openModal("cpModal");
     setTimeout(function () { $("#cpText").focus({ preventScroll: true }); }, 120);
   }
@@ -1077,21 +859,19 @@
     cpTopic = b.getAttribute("data-topic");
     $$("#cpTopics [data-topic]").forEach(function (x) { x.setAttribute("aria-checked", String(x === b)); });
   });
-  $("#cpForm").addEventListener("submit", function (e) {
-    e.preventDefault();
+  $("#cpSend").addEventListener("click", function (e) {
     var text = $("#cpText").value.trim(), err = $("#cpErr");
-    if (text.length < 3) { err.textContent = t("cp.need"); err.classList.add("on"); return; }
-    if (!backend) return;
-    var btn = $("#cpSend"); btn.disabled = true;
-    backend.sendComplaint({ table: table || 0, topic: cpTopic || "other", text: text, name: $("#cpName").value, phone: $("#cpPhone").value, lang: lang }).then(function () {
-      $("#cpForm").hidden = true; $("#cpDone").hidden = false; $("#cpDoneText").textContent = table ? t("cp.thanks.t", { n: table }) : t("cp.thanks");
+    if (text.length < 3) { e.preventDefault(); err.textContent = t("cp.need"); err.classList.add("on"); return; }
+    var tb = cpTopic ? $('#cpTopics [data-topic="' + cpTopic + '"]') : null, name = $("#cpName").value.trim();
+    var msg = t("wa.complaint") + (tb ? " (" + tb.textContent.trim() + ")" : "") + ":\n\n" + text + (name ? "\n\n" + t("wa.name") + ": " + name : "");
+    $("#cpSend").href = waLink(msg);
+    setTimeout(function () {
+      $("#cpForm").hidden = true; $("#cpDone").hidden = false; $("#cpDoneText").textContent = t("cp.thanks");
       $("#cpText").value = ""; cpTopic = ""; $$("#cpTopics [data-topic]").forEach(function (x) { x.setAttribute("aria-checked", "false"); });
-    }).catch(function () { err.textContent = t("cp.err"); err.classList.add("on"); }).then(function () { btn.disabled = false; });
+    }, 400);
   });
-  $("#abCall").addEventListener("click", openCall);
   $("#abComplain").addEventListener("click", openComplaint);
-  $("#abOrder").addEventListener("click", function () { if (!table) { openTablePicker(); return; } openDrawer(); });
-  $("#tblSkip").addEventListener("click", function () { ssSet("ap-browsing", true); closeLayer("tableModal"); });
+  $("#abOrder").addEventListener("click", openDrawer);
 
   /* inside the Claude preview, files are handed over through the viewer's save dialog */
   if (window.claude && typeof window.claude.use === "function") {
@@ -1141,10 +921,6 @@
     var saved = lsGet("ap-lang", null);
     var g = $('.wl-gate[data-enter="' + (LANGS.indexOf(saved) >= 0 ? saved : lang) + '"]');
     if (g) g.classList.add("last");
-    if (table) {
-      var tb = $("#wlTable"); tb.hidden = false;
-      tb.innerHTML = '<span lang="en">Table ' + table + '</span> · <span lang="ar" dir="rtl" class="ar">طاولة ' + table + '</span> · <span lang="sw">Meza ' + table + "</span>";
-    }
     setTimeout(function () { var f = $(".wl-gate.last") || $(".wl-gate"); if (f) f.focus({ preventScroll: true }); }, 400);
     function enter(l, btn) {
       if (w.classList.contains("leaving")) return;
@@ -1154,7 +930,7 @@
       w.classList.add("leaving");
       html.classList.remove("ask-lang");
       window.scrollTo(0, 0);
-      setTimeout(function () { w.remove(); askTable(); }, 750);
+      setTimeout(function () { w.remove(); }, 750);
     }
     $$(".wl-gate", w).forEach(function (b) { b.addEventListener("click", function () { enter(b.getAttribute("data-enter"), b); }); });
     w.addEventListener("keydown", function (e) {
@@ -1169,22 +945,10 @@
   /* ---------------- start ---------------- */
   applyStatic();
   renderAll();
-  if (adminMode()) startAdmin();
-  else if (!document.documentElement.classList.contains("ask-lang")) askTable();
   window.AP_BACKEND.ready.then(function (b) {
     backend = b;
     document.body.setAttribute("data-backend", b.type);
-    renderCart();
-    function adminLink() { var nav = $("footer nav"), a = document.createElement("a"); a.href = "?view=admin"; a.textContent = "Admin"; a.addEventListener("click", function (e) { e.preventDefault(); setView("admin"); }); nav.appendChild(a); }
-    if (window.AP_ARTIFACT) adminLink();   // preview link: everyone can try the admin screen on their own device
-    else if (b.type === "db" && b.user && b.user.isOwner) Promise.resolve(b.user.isOwner()).then(function (o) { if (o) adminLink(); }, function () {});
     return b.ratings();
   }).then(function (m) { RAT = m || {}; refreshMeta(); if (sheetItem) { var h = $("#rHead"); if (h) h.innerHTML = rateHead(ratingOf(sheetItem.id)); } }).catch(function () {});
-  // an order sent earlier in this visit keeps showing its status
-  var last = ssGet("ap-last-order", null);
-  if (last && table && last.table === table) window.AP_BACKEND.ready.then(function (b) {
-    if (!last.id) return;
-    orderUnsub = b.watchOrder(last.id, function (x) { if (x.status !== "done" && x.status !== "cancelled") { $("#sent").classList.add("on"); $("#sentNo").textContent = t("cart.sent.no", { no: x.no, n: x.table }); $("#track").hidden = false; trackStatus(x.status); renderCart(); } });
-  });
-  window.AP = { openSheet: openSheet, setLang: setLang, setTable: setTable, items: ITEMS };
+  window.AP = { openSheet: openSheet, setLang: setLang, items: ITEMS };
 })();

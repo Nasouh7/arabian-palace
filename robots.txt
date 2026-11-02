@@ -1,2 +1,5 @@
 User-agent: *
-Disallow: /
+Allow: /
+Disallow: /tables.html
+Disallow: /backend/
+Sitemap: https://arabianpalace.co.ke/sitemap.xml

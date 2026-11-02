@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Arabian Palace — table QR cards</title>
+<title>Arabian Palace — menu QR cards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Manrope:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -26,7 +25,12 @@
   .card::after { content: ""; position: absolute; inset: 6.4mm; border: .2mm solid var(--gold-line); pointer-events: none; }
   .card .logo { width: 19mm; height: 19mm; border-radius: 50%; margin-top: 2mm; }
   .card .ar { font-family: 'Tajawal', 'Geeza Pro', Tahoma, sans-serif; font-weight: 700; color: var(--gold); font-size: 4.4mm; margin-top: 2mm; direction: rtl; }
-  .card .t { font-family: Fraunces, Georgia, serif; font-size: 12mm; line-height: 1; margin-top: 1mm; }
+  .card .t { font-family: Fraunces, Georgia, serif; font-size: 11mm; line-height: 1; margin-top: 1mm; }
+  .card .t .mn { display: block; font-family: 'Tajawal', 'Geeza Pro', Tahoma, sans-serif; font-weight: 700; font-size: 5.2mm; color: var(--ink-2); margin-top: 1.2mm; }
+  .card .t .mn i { font-style: normal; font-family: Manrope, sans-serif; font-weight: 500; font-size: 3.4mm; letter-spacing: .2em; text-transform: uppercase; }
+  .card .tno { position: absolute; top: 9.5mm; right: 10mm; font-family: Fraunces, Georgia, serif; font-size: 5mm; color: var(--gold); }
+  .bar .chk { display: flex; align-items: center; gap: 8px; height: 40px; letter-spacing: .1em; }
+  .bar .chk input { width: 18px; height: 18px; }
   .card .t small { display: block; font-family: Manrope, sans-serif; font-size: 2.6mm; letter-spacing: .3em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 1.5mm; }
   .card .qr { width: 46mm; height: 46mm; margin-top: 4mm; padding: 2.4mm; background: #fff; border: .3mm solid var(--gold-line); }
   .card .qr svg { width: 100%; height: 100%; display: block; }
@@ -49,45 +53,48 @@
 </head>
 <body>
 <div class="bar">
-  <h1>Table QR cards</h1>
+  <h1>Menu QR cards</h1>
   <label>Website address<input type="url" id="url" placeholder="https://your-domain/"></label>
-  <label>From table<input type="number" id="from" min="1" value="1"></label>
-  <label>To table<input type="number" id="to" min="1" value="12"></label>
+  <label>Cards<input type="number" id="count" min="1" max="200" value="12"></label>
+  <label class="chk"><input type="checkbox" id="nums"> Table numbers</label>
   <button type="button" id="print">Print</button>
-  <p class="warn" id="warn" hidden>Put the live website address in first (or set <code>siteUrl</code> in config.js). These cards point at this preview, which guests can't open.</p>
+  <p class="warn" id="warn" hidden>Put the live website address in first (or set <code>siteUrl</code> in config.js). These cards point at a preview address.</p>
 </div>
 <div class="sheet" id="sheet"></div>
 <script src="config.js"></script>
 <script src="qrcode.js"></script>
 <script>
 (function () {
+  /* One card per table. Every card opens the same online menu, for looking only:
+     guests order with their waiter. (menu.html?qr hides the + buttons and the basket.) */
   var C = window.AP_CONFIG || {};
-  var url = document.getElementById("url"), from = document.getElementById("from"), to = document.getElementById("to");
+  var url = document.getElementById("url"), count = document.getElementById("count"), nums = document.getElementById("nums");
   var base = C.siteUrl || (location.origin + location.pathname.replace(/[^\/]*$/, ""));
-  url.value = base; to.value = Math.min(C.tables || 12, 12); to.max = from.max = C.tables || 30;
+  url.value = base;
   function qrSvg(text) {
     var q = qrcode(0, "Q"); q.addData(text); q.make();
     var n = q.getModuleCount(), d = "";
     for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + "," + r + "h1v1h-1z";
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + n + " " + n + '" shape-rendering="crispEdges"><path d="' + d + '" fill="#1C1612"/></svg>';
   }
-  function link(n) { var u = url.value.trim() || base; if (!/\/$/.test(u) && !/\.html?$/.test(u)) u += "/"; if (/\/$/.test(u)) u += "menu.html"; return u + (u.indexOf("?") < 0 ? "?" : "&") + "t=" + n; }
+  function link() { var u = url.value.trim() || base; if (!/\/$/.test(u) && !/\.html?$/.test(u)) u += "/"; if (/\/$/.test(u)) u += "menu.html"; return u + (u.indexOf("?") < 0 ? "?" : "&") + "qr"; }
   function render() {
-    var a = Math.max(1, +from.value || 1), b = Math.max(a, +to.value || a), h = "";
-    var u = url.value.trim();
-    document.getElementById("warn").hidden = !!u && !/claude|localhost|127\.0\.0\.1/.test(u);
-    for (var n = a; n <= b; n++) {
+    var n = Math.max(1, Math.min(200, +count.value || 1)), h = "", u = url.value.trim();
+    document.getElementById("warn").hidden = !!u && !/claude|localhost|127\.0\.0\.1|github\.io/.test(u);
+    var svg = qrSvg(link());
+    for (var i = 1; i <= n; i++) {
       h += '<section class="card"><i class="star s1"></i><i class="star s2"></i><i class="star s3"></i><i class="star s4"></i>' +
+        (nums.checked ? '<span class="tno">' + i + "</span>" : "") +
         '<img class="logo" src="img/brand/arabian-palace-logo-dark.svg" alt="Arabian Palace">' +
         '<div class="ar">القصر العربي</div>' +
-        '<div class="t"><small>Table · طاولة · Meza</small>' + n + "</div>" +
-        '<div class="qr">' + qrSvg(link(n)) + "</div>" +
-        '<div class="how"><div><b>Scan to see the menu and order</b></div><div class="ar2">امسح الرمز لتصفّح القائمة والطلب</div><div>Changanua uone menyu na uagize</div></div>' +
+        '<div class="t">Menu<span class="mn">القائمة · <i>Menyu</i></span></div>' +
+        '<div class="qr">' + svg + "</div>" +
+        '<div class="how"><div><b>Scan to see the menu, then order with your waiter</b></div><div class="ar2">امسح الرمز لتتصفّح القائمة، ثم اطلب من النادل</div><div>Changanua uone menyu, kisha agiza kwa mhudumu</div></div>' +
         '<div class="halal">100% halal · <span>حلال</span></div></section>';
     }
     document.getElementById("sheet").innerHTML = h;
   }
-  [url, from, to].forEach(function (el) { el.addEventListener("input", render); });
+  [url, count, nums].forEach(function (el) { el.addEventListener("input", render); el.addEventListener("change", render); });
   document.getElementById("print").addEventListener("click", function () { window.print(); });
   render();
 })();
