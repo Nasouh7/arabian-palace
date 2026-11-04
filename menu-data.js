@@ -311,7 +311,7 @@ window.ARABIAN_PALACE = {
     { id: "sauces", name: "Extra Sauces", items: [
       { name: "Garlic sauce", img: "garlic-sauce", price: 150 },
       { name: "Tahini sauce", img: "tahini-sauce", price: 150 },
-      { name: "Sahawiq", price: 100 },
+      { name: "Sahawiq", img: "sahawiq", price: 100 },
       { name: "Sahawiq with cheese", price: 200 },
       { name: "Chutney", price: 200 },
       { name: "Poussin sauce", img: "poussin-sauce", price: 300 },
