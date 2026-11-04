@@ -126,7 +126,7 @@ window.ARABIAN_PALACE = {
 
     { id: "mutton", name: "Mutton Specialties", note: "Rice dishes come with the house soup, salad and sauces.", items: [
       { name: "Laham mandi", img: "laham-mandi", price: 1300, tag: "Signature", desc: "Tender mutton over smoked rice" },
-      { name: "Laham madhbi", price: 1300, desc: "Grilled on hot stones" },
+      { name: "Laham madhbi", img: "laham-madhbi", price: 1300, desc: "Grilled on hot stones" },
       { name: "Laham burma", price: 1300 },
       { name: "Laham hanidh", img: "laham-hanidh", price: 1200 },
       { id: "zurbian", name: "Laham zurbian", img: "zurbian", price: 1200, desc: "Mutton biryani with potatoes and saffron rice" },

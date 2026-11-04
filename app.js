@@ -374,6 +374,7 @@
     box.innerHTML = al.length
       ? '<div class="sh-label">' + ICON.warn + esc(t("sh.contains")) + '</div><div class="al-list">' + al.map(function (a) { return '<span class="al">' + esc(alName(a)) + "</span>"; }).join("") + "</div><p>" + esc(t("sh.allergy.p")) + "</p>"
       : '<div class="sh-label">' + esc(t("sh.noal")) + "</div><p>" + esc(t("sh.noal.p")) + "</p>";
+    $("#shAnat").hidden = !ANAT[it.id];
     fillOrder(it);
     fillRatings(it);
   }
@@ -395,6 +396,7 @@
   $("#shNext").addEventListener("click", function () { sheetStep(1); });
   function sheetZoom() { if (sheetItem && photo(sheetItem)) openLB([lbEntry(sheetItem)], 0); }
   $("#shZoom").addEventListener("click", sheetZoom);
+  $("#shAnat").addEventListener("click", function () { if (sheetItem && ANAT[sheetItem.id]) openLB([anatEntry(sheetItem.id)], 0); });
   $("#shImg").addEventListener("click", sheetZoom);
   // swipe between dishes on the photo area (phones)
   (function () {
@@ -836,7 +838,94 @@
     });
   }
 
-  function renderAll() { HAY = {}; renderSignatures(); renderMenu(); renderGallery(); renderSouq(); applyMode(); renderCart(); reveal(); }
+  /* ---------------- hero: the food-anatomy posters ----------------
+     Four restaurant posters stacked like cards. The front one opens the dish; the tabs (or a swipe) bring
+     another to the front. It turns over on its own every few seconds until the guest picks one, and never
+     when they prefer reduced motion, while the pointer or focus is on it, or while it is off screen. */
+  var ANAT = { "laham-mandi": 1, "laham-hanidh": 1, "zurbian": 1, "laham-madhbi": 1 };
+  function anatEntry(id) { var it = BY[id]; return { src: "img/hero/" + id + "-960.webp", name: it ? nm(it) : "", sub: t("hero.anat.sub") }; }
+  var SC = { i: 0, cards: [], tabs: [], hold: {}, swiped: false };
+  function scRender() {
+    var box = $("#showcase"); if (!box) return;
+    SC.cards.forEach(function (c) {
+      var it = BY[c.dataset.id], n = it ? nm(it) : "";
+      c.querySelector("img").alt = t("hero.anat.alt", { dish: n });
+      c.setAttribute("aria-label", t("hero.anat.card", { dish: n }));
+    });
+    var it = BY[SC.cards[SC.i].dataset.id];
+    $("#scPrice").textContent = it ? ksh(it.price) : "";
+    $("#scOpen").textContent = QR ? t("sig.see") : t("hero.anat.open");
+  }
+  function scRun() {
+    var box = $("#showcase"); if (!box) return;
+    var held = Object.keys(SC.hold).some(function (k) { return SC.hold[k]; });
+    box.classList.toggle("paused", held);
+  }
+  function scGo(n, manual) {
+    var N = SC.cards.length; n = ((n % N) + N) % N;
+    var box = $("#showcase");
+    if (manual) box.classList.add("manual");
+    SC.i = n;
+    SC.cards.forEach(function (c, i) {
+      var pos = (i - n + N) % N;
+      c.dataset.pos = pos; c.tabIndex = pos ? -1 : 0;
+      if (pos) c.setAttribute("aria-hidden", "true"); else c.removeAttribute("aria-hidden");
+    });
+    SC.tabs.forEach(function (b, i) {
+      var on = i === n; b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1;
+      var bar = b.querySelector("i"); bar.style.animation = "none"; void bar.offsetWidth; bar.style.animation = "";
+    });
+    scRender();
+  }
+  (function scInit() {
+    var st = $("#scStage"); if (!st) return;
+    var box = $("#showcase");
+    SC.cards = [].slice.call(st.querySelectorAll(".sc-card"));
+    SC.tabs = [].slice.call(document.querySelectorAll("#scTabs [role=tab]"));
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) box.classList.add("manual");
+    SC.cards.forEach(function (c, i) {
+      c.querySelector("img").draggable = false;
+      c.addEventListener("click", function () {
+        if (SC.swiped) { SC.swiped = false; return; }
+        if (+c.dataset.pos === 0) openSheet(c.dataset.id); else scGo(i, true);
+      });
+    });
+    SC.tabs.forEach(function (b, i) {
+      b.addEventListener("click", function () { scGo(i, true); });
+      b.querySelector("i").addEventListener("animationend", function () { if (+b.getAttribute("aria-selected") || b.getAttribute("aria-selected") === "true") scGo(SC.i + 1); });
+    });
+    $("#scTabs").addEventListener("keydown", function (e) {
+      var k = e.key, d = k === "ArrowRight" ? 1 : k === "ArrowLeft" ? -1 : 0;
+      if (lang === "ar") d = -d;
+      if (k === "Home" || k === "End" || d) {
+        e.preventDefault();
+        scGo(k === "Home" ? 0 : k === "End" ? SC.cards.length - 1 : SC.i + d, true);
+        SC.tabs[SC.i].focus();
+      }
+    });
+    $("#scOpen").addEventListener("click", function () { openSheet(SC.cards[SC.i].dataset.id); });
+    // swipe on phones (and drag with a mouse)
+    var x0 = null, y0 = 0;
+    st.addEventListener("pointerdown", function (e) { x0 = e.clientX; y0 = e.clientY; });
+    st.addEventListener("pointercancel", function () { x0 = null; });
+    st.addEventListener("pointerup", function (e) {
+      if (x0 == null) return;
+      var dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
+      if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        SC.swiped = true; setTimeout(function () { SC.swiped = false; }, 400);
+        scGo(SC.i + ((dx < 0) !== (lang === "ar") ? 1 : -1), true);
+      }
+    });
+    box.addEventListener("mouseenter", function () { SC.hold.hover = true; scRun(); });
+    box.addEventListener("mouseleave", function () { SC.hold.hover = false; scRun(); });
+    box.addEventListener("focusin", function () { SC.hold.focus = true; scRun(); });
+    box.addEventListener("focusout", function (e) { if (!box.contains(e.relatedTarget)) { SC.hold.focus = false; scRun(); } });
+    document.addEventListener("visibilitychange", function () { SC.hold.tab = document.hidden; scRun(); });
+    if ("IntersectionObserver" in window) new IntersectionObserver(function (en) { SC.hold.off = !en[0].isIntersecting; scRun(); }, { threshold: .35 }).observe(st);
+    scGo(0);
+  })();
+
+  function renderAll() { HAY = {}; scRender(); renderSignatures(); renderMenu(); renderGallery(); renderSouq(); applyMode(); renderCart(); reveal(); }
 
   /* ---------------- views: website · online menu ---------------- */
   function setView(v) {
